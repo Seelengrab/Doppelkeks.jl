@@ -2,30 +2,16 @@ module Doppelkeks
 
 export Literal, Clause, Formula, solve
 
-struct Literal
-    name::Int
-    pos::Bool
-end
-Base.:!(l::Literal) = Literal(l.name,!l.pos)
-
-struct Clause
-    lits::Array{Literal,1}
-end
-
-Base.in(l::Literal,c::Clause) = l ∈ c.lits
-
-struct Formula
-    clauses::Array{Clause,1}
-end
+include("structs.jl")
 
 abstract type SAT_State end
 struct SAT <: SAT_State end
 struct UNSAT <: SAT_State end
 
 function solve(formula::Formula)
-    trail = Tuple{Literal, Bool}[]
+    trail = Trail(Tuple{Literal, Bool}[])
     while true
-        if !satisfies(trail, formula)
+        if doBacktrack(trail, formula)
             if isempty(decisions(trail))
                 return UNSAT, nothing
             else
@@ -45,20 +31,18 @@ end
 
 ###### Utiliy
 
-function satisfies(trail, formula)
-    for (l,_) in trail
-        for c in formula.clauses
-            if !l ∈ c
-                return false
-            end
-        end
+function doBacktrack(trail, formula)
+    isempty(trail) && return false
+
+    for clause in formula
+        all(!l in trail for l in clause) && return true
     end
     
-    return true
+    return false
 end
 
 function vars(f::Formula)
-    res = Set()
+    res = Set{Int}()
     
     for c in f.clauses
         for l in c.lits
@@ -70,7 +54,7 @@ function vars(f::Formula)
 end
 
 function vars(trail)
-    res = Set()
+    res = Set{Int}()
     
     for (l,_) in trail
         push!(res, l.name)
@@ -87,8 +71,8 @@ end
 
 function lastDecision(trail)
     for i in length(trail):-1:1
-        el = trail[i]
-        el[2] && return el[1]
+        name, decision = trail[i]
+        decision && return name
     end
     return nothing
 end
@@ -111,8 +95,8 @@ end
 
 function prefixBeforeLastDecision(trail)
     for i in length(trail):-1:1
-        el = trail[i]
-        el[2] && return trail[1:i-1]
+        _, decision = trail[i]
+        decision && return Trail(trail[1:i-1])
     end
     return nothing
 end
@@ -143,15 +127,16 @@ end
 
 function applyDecide!(trail, formula)
     l = selectLiteral(trail, formula)
-    println("applyDecide $l")
     assertLiteral!(trail, l, true)
+    println(rpad("applyDecide", 16), l, " -> ", trail)
 end
 
 function applyBacktrack(trail)
     l = lastDecision(trail)
     M = prefixBeforeLastDecision(trail)
-    println("applyBacktrack $M")
-    assertLiteral!(M, !l, false)    
+    assertLiteral!(M, !l, false)
+    println(rpad("applyBacktrack", 16), !l, " -> ", M)
+    M
 end
 
 function selectLiteral(trail, formula)
@@ -159,7 +144,7 @@ function selectLiteral(trail, formula)
     f_vars = vars(formula)
     @assert t_vars != f_vars
     pos_vars = setdiff(f_vars, t_vars)
-    Literal(rand(pos_vars),rand(Bool))
+    Literal(rand(pos_vars), rand(Bool))
 end
 
 end # module
