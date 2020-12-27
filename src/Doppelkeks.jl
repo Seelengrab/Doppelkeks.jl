@@ -1,5 +1,7 @@
 module Doppelkeks
 
+using Logging
+
 export Literal, Clause, Formula, solve
 
 include("structs.jl")
@@ -128,14 +130,14 @@ end
 function applyDecide!(trail, formula)
     l = selectLiteral(trail, formula)
     assertLiteral!(trail, l, true)
-    println(rpad("applyDecide", 16), l, " -> ", trail)
+    @info string(rpad("applyDecide", 16), l, " -> ", trail)
 end
 
 function applyBacktrack(trail)
     l = lastDecision(trail)
     M = prefixBeforeLastDecision(trail)
     assertLiteral!(M, !l, false)
-    println(rpad("applyBacktrack", 16), !l, " -> ", M)
+    @info string(rpad("applyBacktrack", 16), !l, " -> ", M)
     M
 end
 
